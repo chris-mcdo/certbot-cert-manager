@@ -24,6 +24,7 @@ file_env() {
 }
 
 CERTBOT_CERT_DIR="/etc/letsencrypt"
+CERTBOT_HISTORY_PATH="${CERTBOT_CERT_DIR}/.renewal-history"
 
 file_env 'CERTBOT_EMAIL'
 file_env 'CERTBOT_DOMAINS'
@@ -44,3 +45,6 @@ certbot certonly --standalone \
     --non-interactive \
     --agree-tos \
     --no-eff-email
+
+# writing to history file
+echo "created $(date)" >> ${CERTBOT_HISTORY_PATH}

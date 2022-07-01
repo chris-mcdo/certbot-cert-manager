@@ -73,6 +73,12 @@ docker run \
 
 The `certbot renew` command is run via cron once per day (by default).
 
+## Post-deploy script
+
+You can specify a script to run after successful renewal of a certificate via the `CERTBOT_DEPLOY_SCRIPT` variable (e.g. `CERTBOT_DEPLOY_SCRIPT=/usr/local/bin/deploy-nginx.sh`).
+
+For example, `/usr/local/bin/deploy-nginx.sh` (included in the image) downloads / updates SSL settings for use in nginx, and writes to a "history" file.
+
 ## Notes
 
 Letsencrypt enforces rate limits on creation / renewal of real certificates.
