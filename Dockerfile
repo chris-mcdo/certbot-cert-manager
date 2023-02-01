@@ -1,4 +1,4 @@
-FROM certbot/certbot:latest
+FROM certbot/certbot:v2.2.0
 
 # Remove crontab junk
 RUN set -eux; \
