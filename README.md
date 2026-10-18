@@ -81,6 +81,22 @@ For example, `/usr/local/bin/deploy-nginx.sh` (included in the image) downloads 
 
 ## Notes
 
+The image now pins Certbot 5.8.0 by digest. Renewal/creation return Certbot's
+failure status and write success history only after success. Arguments and
+`_FILE` settings are quoted; conflicting direct/file settings are rejected.
+
+The Nginx deploy hook downloads DH parameters to a private temporary file and
+atomically replaces the published file after checking its PEM markers. A failed
+refresh preserves an existing nonempty parameter file and still signals reload
+for the renewed certificate. If no previous parameter file exists, the hook fails
+without a reload signal. No production certificates are touched by package tests.
+
+Run synthetic checks with `python3 -m unittest discover -s tests -v`. CI also
+checks the image offline. These checks do not issue certificates, run ACME dry
+runs, inspect account keys, or prove a real Nginx reload; those remain supervised
+deployment checks. `CERTBOT_CERT_DIR` defaults to `/etc/letsencrypt` and can be
+overridden for isolated checks.
+
 Letsencrypt enforces rate limits on creation / renewal of real certificates.
 You can use test certificates instead by setting `CERTBOT_STAGING=true` when creating the certificates with `create-certs.sh`.
 

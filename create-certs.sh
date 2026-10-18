@@ -1,50 +1,30 @@
 #!/bin/sh
-
-# file_env
-# set a variable from a file or from the environment
-# does not export the variable
-# usage: file_env VAR [DEFAULT]
-#    e.g.: file_env 'XYZ_DB_PASSWORD' 'example'
-file_env() {
-    local var="$1"
-    local fileVar="${var}_FILE"
-    local def="${2:-}"
-    if [ "$(eval echo \$$var)" ] && [ "$(eval echo \$$fileVar)" ]; then
-        echo >&2 "error: both $var and $fileVar are set (but are exclusive)"
-        exit 1
+set -eu
+umask 077
+read_setting() {
+    name=$1
+    eval 'direct=${'"$name"'-}'
+    eval 'file=${'"$name"'_FILE-}'
+    if [ -n "$direct" ] && [ -n "$file" ]; then
+        echo 'error: conflicting certificate settings' >&2
+        return 1
     fi
-    local val="$def"
-    if [ "$(eval echo \$$var)" ]; then
-        val="$(eval echo \$$var)"
-    elif [ "$(eval echo \$$fileVar)" ]; then
-        val="$(cat "$(eval echo \$$fileVar)")"
-    fi
-    eval $var=\$val
-    unset "$fileVar"
+    if [ -n "$file" ]; then cat -- "$file"; else printf '%s' "$direct"; fi
 }
-
-CERTBOT_CERT_DIR="/etc/letsencrypt"
-CERTBOT_HISTORY_PATH="${CERTBOT_CERT_DIR}/.renewal-history"
-
-file_env 'CERTBOT_EMAIL'
-file_env 'CERTBOT_DOMAINS'
-CERTBOT_STAGING=${CERTBOT_STAGING+--test-cert}
-
-# check directory is empty before creating
-if [ "$(ls -A ${CERTBOT_CERT_DIR})" ]; then
-    echo "error: non-empty certificate directory"
+CERTBOT_CERT_DIR=${CERTBOT_CERT_DIR:-/etc/letsencrypt}
+CERTBOT_EMAIL=$(read_setting CERTBOT_EMAIL)
+CERTBOT_DOMAINS=$(read_setting CERTBOT_DOMAINS)
+: "${CERTBOT_EMAIL:?Missing certificate email}" "${CERTBOT_DOMAINS:?Missing certificate domains}"
+mkdir -p "$CERTBOT_CERT_DIR"
+contents=$(ls -A "$CERTBOT_CERT_DIR")
+if [ -n "$contents" ]; then
+    echo 'error: non-empty certificate directory' >&2
     exit 1
 fi
-
-echo "creating certificates"
-certbot certonly --standalone \
-    $CERTBOT_STAGING \
-    -m $CERTBOT_EMAIL \
-    -d $CERTBOT_DOMAINS \
-    --keep-until-expiring \
-    --non-interactive \
-    --agree-tos \
-    --no-eff-email
-
-# writing to history file
-echo "created $(date)" >> ${CERTBOT_HISTORY_PATH}
+set -- certonly --standalone --config-dir "$CERTBOT_CERT_DIR" \
+    -m "$CERTBOT_EMAIL" -d "$CERTBOT_DOMAINS" --keep-until-expiring \
+    --non-interactive --agree-tos --no-eff-email
+if [ "${CERTBOT_STAGING+x}" = x ]; then set -- "$@" --test-cert; fi
+echo 'creating certificates'
+certbot "$@"
+printf 'created %s\n' "$(date)" >> "$CERTBOT_CERT_DIR/.renewal-history"
