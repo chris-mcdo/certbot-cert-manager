@@ -1,0 +1,21 @@
+name: tests
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  scripts-and-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: python3 -m unittest discover -s tests -v
+      - run: docker build --tag certificate-review .
+      - name: Offline image/script checks
+        run: |
+          docker run --rm --network none --read-only \
+            --tmpfs /tmp:rw,nosuid,exec,size=64m \
+            --mount type=bind,src="$PWD",dst=/repo,readonly \
+            --env PYTHONDONTWRITEBYTECODE=1 --entrypoint python3 \
+            certificate-review -m unittest discover -s /repo/tests -v
+          docker run --rm --network none --read-only \
+            --tmpfs /tmp:rw,nosuid,size=64m --entrypoint /bin/sh \
+            certificate-review -c 'certbot --version && command -v crond && command -v wget'
